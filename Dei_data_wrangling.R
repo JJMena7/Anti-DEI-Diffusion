@@ -14,7 +14,7 @@ knitr::opts_chunk$set(
 options(scipen = 999)
 
 # set working Directory 
-setwd("/Users/jjmena7/Desktop/diss_r_analysis")
+setwd("/Users/jjmena7/Desktop/Anti-DEI-Diffusion")
 
 #Load Packages
 library(readxl)
@@ -148,16 +148,6 @@ write_csv(
 
 
 #Extract for ACS1 data 2020 - 2025
-
-
-
-
-
-
-
-
-
-
 
 
 #################ACS Year 1 & 5 Estimates#################################
@@ -502,6 +492,168 @@ head(state_flag_white)
 
 #create new excel file
 write_xlsx(state_flag_white, "/Users/jjmena7/Desktop/diss_r_analysis/state_flagship_white.xlsx")
+
+##Merge IPEDS data to state flagships data
+
+#Notes: Accessible Ipeds data goes from 2020 - 2024
+##variable of interest: 
+#"Full-time students, Undergraduate, Degree/certificate-seeking, First-time"
+
+#first need to develop estimates
+#EF2020A.White total/EF2020A.Grand total
+
+#Packages
+library(tidyverse)
+library(readxl)
+library(janitor)
+
+###1. load data 
+
+#Set working directory
+setwd("/Users/jjmena7/Desktop/diss_r_analysis/Data/flasgship")
+
+#Load state flagship data
+state_flagships <- read_excel("state_flagships.xlsx")
+
+#Load Ipeds Data
+
+iped_2020 <- read_csv("2020.csv")
+iped_2021 <- read_csv("2021.csv")
+iped_2022 <- read_csv("2022.csv")
+iped_2023 <- read_csv("2023.csv")
+iped_2024 <- read_csv("2024.csv")
+
+#function to clean each Ipeds file
+read_ipeds_year <- function(file_path) {
+  
+  target_level <- "Full-time students, Undergraduate, Degree/certificate-seeking, First-time"
+  
+  df <- read_csv(file_path, show_col_types = FALSE) %>%
+    clean_names()
+  
+  # Identify year from filename, e.g., "2020.csv" -> 2020
+  file_year <- str_extract(basename(file_path), "\\d{4}") %>%
+    as.integer()
+  
+  # Find relevant IPEDS columns
+  level_col <- names(df)[str_detect(names(df), "level_of_student")]
+  total_col <- names(df)[str_detect(names(df), "grand_total")]
+  white_col <- names(df)[str_detect(names(df), "white_total")]
+  
+  df %>%
+    filter(.data[[level_col]] == target_level) %>%
+    transmute(
+      unitid = as.character(unitid),
+      ipeds_institution_name = str_squish(institution_name),
+      year = as.integer(year),
+      first_time_total = as.numeric(.data[[total_col]]),
+      first_time_white = as.numeric(.data[[white_col]]),
+      flagship_white_prop = first_time_white / first_time_total
+    )
+}
+
+
+ipeds_files <- c("2020.csv", "2021.csv", "2022.csv", "2023.csv", "2024.csv")
+
+ipeds_panel <- map_dfr(ipeds_files, read_ipeds_year)
+
+#check data
+glimpse(ipeds_panel)
+ipeds_panel |> count(year)
+
+#checking for missing data in 2020 and 2021
+ipeds_panel |>
+  distinct(unitid, ipeds_institution_name, year) |>
+  count(unitid, ipeds_institution_name, name = "n_years") |>
+  arrange(n_years) |> print(n = 248)
+
+#missing 2 years in Pennsylvania State University-Main Campus 
+
+#merge by unit ID 
+
+flagship_crosswalk <- tribble(
+  ~state, ~institution, ~unitid, ~ipeds_institution_name,
+  
+  "Alabama", "University of Alabama, Tuscaloosa", "100751", "The University of Alabama",
+  "Alaska", "University of Alaska Fairbanks", "102614", "University of Alaska Fairbanks",
+  "Arizona", "University of Arizona", "104179", "University of Arizona",
+  "Arkansas", "University of Arkansas Fayetteville", "106397", "University of Arkansas",
+  "California", "University of California, Berkeley", "110635", "University of California-Berkeley",
+  "Colorado", "University of Colorado Boulder", "126614", "University of Colorado Boulder",
+  "Connecticut", "University of Connecticut, Storrs", "129020", "University of Connecticut",
+  "Delaware", "University of Delaware", "130943", "University of Delaware",
+  "Florida", "University of Florida", "134130", "University of Florida",
+  "Georgia", "University of Georgia", "139959", "University of Georgia",
+  "Hawaii", "University of Hawaiʻi at Mānoa", "141574", "University of Hawaii at Manoa",
+  "Idaho", "University of Idaho", "142285", "University of Idaho",
+  "Illinois", "University of Illinois at Urbana-Champaign", "145637", "University of Illinois Urbana-Champaign",
+  "Indiana", "Indiana University Bloomington", "151351", "Indiana University-Bloomington",
+  "Iowa", "The University of Iowa", "153658", "University of Iowa",
+  "Kansas", "University of Kansas, Lawrence", "155317", "University of Kansas",
+  "Kentucky", "University of Kentucky, Lexington", "157085", "University of Kentucky",
+  "Louisiana", "Louisiana State University, Baton Rouge", "159391", "Louisiana State University and Agricultural & Mechanical College",
+  "Maine", "The University of Maine, Orono", "161253", "University of Maine",
+  "Maryland", "University of Maryland, College Park", "163286", "University of Maryland-College Park",
+  "Massachusetts", "University of Massachusetts Amherst", "166629", "University of Massachusetts-Amherst",
+  "Michigan", "University of Michigan, Ann Arbor", "170976", "University of Michigan-Ann Arbor",
+  "Minnesota", "University of Minnesota, Twin Cities", "174066", "University of Minnesota-Twin Cities",
+  "Mississippi", "University of Mississippi", "176017", "University of Mississippi",
+  "Missouri", "University of Missouri, Columbia", "178396", "University of Missouri-Columbia",
+  "Montana", "University of Montana, Missoula", "180489", "The University of Montana",
+  "Nebraska", "University of Nebraska–Lincoln", "181464", "University of Nebraska-Lincoln",
+  "Nevada", "University of Nevada, Reno", "182290", "University of Nevada-Reno",
+  "New Hampshire", "University of New Hampshire, Durham", "183044", "University of New Hampshire-Main Campus",
+  "New Jersey", "Rutgers University–New Brunswick", "186380", "Rutgers University-New Brunswick",
+  "New Mexico", "The University of New Mexico, Albuquerque", "187985", "University of New Mexico-Main Campus",
+  "New York", "University at Buffalo (SUNY)", "196088", "University at Buffalo",
+  "North Carolina", "The University of North Carolina at Chapel Hill", "199120", "University of North Carolina at Chapel Hill",
+  "North Dakota", "University of North Dakota, Grand Forks", "200280", "University of North Dakota",
+  "Ohio", "The Ohio State University, Columbus", "204796", "Ohio State University-Main Campus",
+  "Oklahoma", "The University of Oklahoma, Norman Campus", "207500", "University of Oklahoma-Norman Campus",
+  "Oregon", "University of Oregon, Eugene", "209551", "University of Oregon",
+  "Pennsylvania", "Pennsylvania State University", "214777", "Pennsylvania State University-Main Campus",
+  "Rhode Island", "The University of Rhode Island", "217484", "University of Rhode Island",
+  "South Carolina", "University of South Carolina, Columbia", "218663", "University of South Carolina-Columbia",
+  "South Dakota", "University of South Dakota, Vermillion", "219471", "University of South Dakota",
+  "Tennessee", "The University of Tennessee, Knoxville", "221759", "The University of Tennessee-Knoxville",
+  "Texas", "The University of Texas at Austin", "228778", "The University of Texas at Austin",
+  "Utah", "The University of Utah", "230764", "University of Utah",
+  "Vermont", "The University of Vermont", "231174", "University of Vermont",
+  "Virginia", "University of Virginia, Charlottesville", "234076", "University of Virginia-Main Campus",
+  "Washington", "University of Washington", "236948", "University of Washington-Seattle Campus",
+  "West Virginia", "West Virginia University, Morgantown", "238032", "West Virginia University",
+  "Wisconsin", "University of Wisconsin–Madison", "240444", "University of Wisconsin-Madison",
+  "Wyoming", "University of Wyoming", "240727", "University of Wyoming"
+)
+
+#check that each state has a unit ID
+state_flagships_with_id <- state_flagships |>
+  left_join(
+    flagship_crosswalk,
+    by = c("state", "institution")
+  )
+
+state_flagships_with_id |>
+  filter(is.na(unitid)) |>
+  distinct(state, institution)
+
+#Merge IPEDS data with unitid and year
+flagship_merged <- state_flagships_with_id |>
+  select(-flagship_white_prop) |>
+  left_join(
+    ipeds_panel,
+    by = c("unitid", "year")
+  )
+
+#check for any missing data
+flagship_merged |>
+  filter(year <= 2024, is.na(first_time_total)) |>
+  distinct(state, institution, unitid, year)
+
+#save as new csv file
+# Save as CSV
+write_csv(flagship_merged, "state_flagships_ipeds_merged.csv")
+
 
 
 
