@@ -14,7 +14,7 @@ knitr::opts_chunk$set(
 options(scipen = 999)
 
 # set working Directory 
-setwd("/Users/jjmena7/Desktop/Anti-DEI-Diffusion")
+setwd("/Users/jjmena7/Desktop/diss_r_analysis")
 
 #Load Packages
 library(readxl)
@@ -36,9 +36,12 @@ dei_df <- read_excel("anti_dei_panel_data.xlsx", sheet = 3) |>
     intro_any,
     intro_count,
     adopt_any,
-    rep_leg_prop_raw,
+    governor_party,
+    rep_leg_prop,
     rep_leg_prop_lag,
-    state_white_prop_raw
+    state_white_prop_acs5,
+    state_white_prop_acs1,
+    flagship_white_prop
   )
 
 # 2. Check structure
@@ -540,7 +543,7 @@ read_ipeds_year <- function(file_path) {
   total_col <- names(df)[str_detect(names(df), "grand_total")]
   white_col <- names(df)[str_detect(names(df), "white_total")]
   
-  df %>%
+  df |>
     filter(.data[[level_col]] == target_level) %>%
     transmute(
       unitid = as.character(unitid),
@@ -650,14 +653,77 @@ flagship_merged |>
   filter(year <= 2024, is.na(first_time_total)) |>
   distinct(state, institution, unitid, year)
 
-#save as new csv file
-# Save as CSV
-write_csv(flagship_merged, "state_flagships_ipeds_merged.csv")
+#Save as new csv file
+#Save as CSV
+#write_csv(flagship_merged, "state_flagships_ipeds_merged.csv")
+
+##### Create White Demographic representation & annual change estimates ####
+
+#first create two separate estimates for ACS 5 & ACS 1 of white state proportions
+
+#variable calcualtion
+#white_demo_rep_acs5 = flagship_white_prop - state_white_prop_acs5
+#white_demo_rep_acs1 = flagship_white_prop - state_white_prop_acs1
 
 
+#sort and format variables of interest
+dei_df <- dei_df |>
+  mutate(
+    year = as.integer(year),
+    rep_leg_prop_lag = parse_number(as.character( rep_leg_prop_lag)),
+    flagship_white_prop = parse_number(as.character(flagship_white_prop)), #parse_number allows NAs to be differentiated from data
+    state_white_prop_acs1 = parse_number(as.character(state_white_prop_acs1)),
+    state_white_prop_acs5 = parse_number(as.character(state_white_prop_acs5))
+  ) |>
+  arrange(state, year)
+
+#Create variables for new estimates 
+
+dei_df <- dei_df |>
+  mutate(
+    white_demo_rep_acs1 = flagship_white_prop - state_white_prop_acs1,
+    white_demo_rep_acs5 = flagship_white_prop - state_white_prop_acs5
+  )
+
+#check data 
+dei_df |>
+  select(
+    state,
+    year,
+    flagship_white_prop,
+    state_white_prop_acs1,
+    state_white_prop_acs5,
+    white_demo_rep_acs1,
+    white_demo_rep_acs5
+  ) |>
+  arrange(state, year) |>
+  View()
+
+#Next, calculate white annual change within each state 
+
+dei_df <- dei_df |>
+  arrange(state, year) |>
+  group_by(state) |>
+  mutate(
+    white_demo_change_acs1 = white_demo_rep_acs1 - lag(white_demo_rep_acs1),
+    white_demo_change_acs5 = white_demo_rep_acs5 - lag(white_demo_rep_acs5)
+  ) |>
+  ungroup()
+
+#Now lag annual changes 
+
+dei_df <- dei_df |>
+  arrange(state, year) |>
+  group_by(state) |>
+  mutate(
+    lagged_white_demo_change_acs1 = lag(white_demo_change_acs1),
+    lagged_white_demo_change_acs5 = lag(white_demo_change_acs5)
+  ) %>%
+  ungroup()
 
 
+#extract dataset with new variables 
 
-
+write_xlsx(dei_df, "/Users/jjmena7/Desktop/diss_r_analysis/dei_df.xlsx")
 
 
