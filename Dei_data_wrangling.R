@@ -723,7 +723,336 @@ dei_df <- dei_df |>
 
 
 #extract dataset with new variables 
-
 write_xlsx(dei_df, "/Users/jjmena7/Desktop/diss_r_analysis/dei_df.xlsx")
+
+
+###################################################
+# Higher Education Governance & Funding Variables 
+
+
+#1.) First convert yes/no output from governance structure dataset to 1/0
+
+#load packages 
+library(readxl)
+library(dplyr)
+library(writexl)
+
+#Set working directory 
+setwd("/Users/jjmena7/Desktop/Dissertation Research/diss_r_analysis/Data/Higher Education")
+
+#load higher ed governance structure dataset
+gov_str <- read_excel("gov_structure.xlsx")
+
+
+#inspect data 
+names(gov_str)
+glimpse(gov_str)
+
+table(gov_str$ecs_single_statewide, useNA = "ifany")
+
+#create (1/0) coding scheme 
+#1 = 1 = state has a single statewide coordinating/governing board, 0 otherwise
+
+gov_str.2 <- gov_str |> mutate(
+  ecs_binary = case_when(
+    ecs_single_statewide == "yes" ~1L,
+    ecs_single_statewide == "no" ~ 0L,
+    TRUE ~ NA_integer_
+  )
+)
+
+#check the recoding with old data vs new 
+table(
+  gov_str.2$ecs_single_statewide,
+  gov_str.2$ecs_binary,
+  useNA = "ifany"
+)
+
+#check for any failed coding 
+gov_str.2 |>
+  filter(is.na(ecs_binary)) |>
+  select(
+    state,
+    year,
+    ecs_single_statewide
+  )
+
+#should return as onlyt tibble: 0 × 3
+
+#select only few variables 
+
+gov_str_bin <- gov_str.2 |> 
+  select(
+    state_id,
+    state,
+    state_abbr,
+    year,
+    ecs_single_statewide,
+    ecs_binary
+  )
+
+
+#extract new coded dataset
+
+write_xlsx(gov_str_bin, "/Users/jjmena7/Desktop/Dissertation Research/diss_r_analysis/Data/Higher Education/gov_str_bin.xlsx")
+
+
+
+#######Higher Education Funding#####
+
+#load packages 
+library(tidyverse)
+library(janitor)
+
+
+#Set new Working directory
+setwd("/Users/jjmena7/Desktop/Dissertation Research/diss_r_analysis/Data/Higher Education/state appropriations/raw_data")
+
+#load and inspect 2019 appropriations data 
+ipeds_2019 <- read_csv("ipeds_2019.csv",
+                 show_col_types = FALSE) |> clean_names()
+
+#check data 
+names(ipeds_2019)
+
+#variables names
+#[1] "unitid"  "institution_name"                 
+#[3] "year"    "f1819_f1a_rv_state_appropriations"
+
+glimpse(ipeds_2019)
+
+#check for each row having its own "unitid" should return back as zero
+ipeds_2019 |>
+  count(unitid) |>
+  filter(n > 1)
+
+#rename state appropriations variable 
+
+ipeds_2019 <- ipeds_2019 |>
+  rename(
+    state_appropriations = f1819_f1a_rv_state_appropriations
+  )
+
+
+#repeat process for 2020 - 2024
+
+#2020 IPEDS data 
+ipeds_2020 <- read_csv("ipeds_2020.csv",
+                 show_col_types = FALSE) |> clean_names()
+
+
+names(ipeds_2020)
+glimpse(ipeds_2020)
+
+ipeds_2020 <- ipeds_2020 |>
+  rename(
+    state_appropriations = f1920_f1a_rv_state_appropriations
+  )
+
+#2021 IPEDS data 
+ipeds_2021 <- read_csv("ipeds_2021.csv",
+                 show_col_types = FALSE) |> clean_names()
+names(ipeds_2021)
+glimpse(ipeds_2021)
+
+ipeds_2021 <- ipeds_2021 |>
+  rename(
+    state_appropriations = f2021_f1a_rv_state_appropriations
+  )
+
+#2022 IPEDS data
+ipeds_2022 <- read_csv("ipeds_2022.csv",
+                 show_col_types = FALSE) |> clean_names()
+names(ipeds_2022)
+glimpse(ipeds_2022)
+
+ipeds_2022 <- ipeds_2022 |>
+  rename(
+    state_appropriations = f2122_f1a_rv_state_appropriations
+  )
+
+#2023 IPEDS data
+ipeds_2023 <- read_csv("ipeds_2023.csv",
+                 show_col_types = FALSE) |> clean_names()
+names(ipeds_2023)
+glimpse(ipeds_2023)
+
+ipeds_2023 <- ipeds_2023 |>
+  rename(
+    state_appropriations = f2223_f1a_rv_state_appropriations
+  )
+
+#2024 IPEDS data
+ipeds_2024 <- read_csv("ipeds_2024.csv",
+                 show_col_types = FALSE) |> clean_names()
+names(ipeds_2024)
+glimpse(ipeds_2024)
+
+ipeds_2024 <- ipeds_2024 |>
+  rename(
+    state_appropriations = f2324_f1a_state_appropriations
+  )
+
+#once all files have the same variables/names I can stack them 
+
+ipeds_total <- bind_rows(
+  ipeds_2019,
+  ipeds_2020,
+  ipeds_2021,
+  ipeds_2022,
+  ipeds_2023,
+  ipeds_2024
+)
+
+glimpse(ipeds_total)
+#provides a table count of observations by year
+table(ipeds_total$year)
+
+#load state charcteristics file 
+state_characteristics <- read_csv(
+  "state_characteristics.csv",
+  show_col_types = FALSE
+) |>
+  clean_names()
+
+names(state_characteristics)
+
+#unitID to state crosswalk
+
+ipeds_crosswalk <- state_characteristics |>
+  select(
+    unitid,
+    state = hd2025_state_abbreviation_4
+  ) |>
+  distinct()
+
+
+#merge state characteristics with state appropriations data 
+
+ipeds_merged <- ipeds_total |>
+  left_join(
+    ipeds_crosswalk,
+    by = "unitid"
+  )
+
+#verify that the merge worked 
+ipeds_merged  |>
+  summarise(
+    observations = n(),
+    missing_state = sum(is.na(state))
+  )
+
+ipeds_merged  |>
+  group_by(year) |>
+  summarise(
+    n_institutions = n(),
+    n_missing_appropriations =
+      sum(is.na(state_appropriations)),
+    pct_missing =
+      mean(is.na(state_appropriations)) * 100
+  )
+
+#Identify variables that are missing 
+
+ipeds_merged |>
+  filter(is.na(state_appropriations)) |>
+  select(
+    unitid,
+    institution_name,
+    state,
+    year
+  ) |>
+  arrange(state, institution_name, year)
+
+#Checking if same instituions missing data every year
+ipeds_merged |>
+  filter(is.na(state_appropriations)) |>
+  count(
+    unitid,
+    institution_name,
+    state,
+    name = "n_years_missing"
+  ) |>
+  arrange(desc(n_years_missing))
+
+#checks for missing data 
+
+# 1. Which institutions are missing?
+ipeds_merged |>
+  filter(is.na(state_appropriations)) |>
+  select(unitid, institution_name, state, year) |>
+  arrange(state, institution_name, year)
+
+# 2. Are the same institutions missing repeatedly?
+ipeds_merged |>
+  filter(is.na(state_appropriations)) |>
+  count(unitid, institution_name, state,
+        name = "n_years_missing") |>
+  arrange(desc(n_years_missing))
+
+# 3. Which state-years contain missing institutions?
+ipeds_merged |>
+  filter(is.na(state_appropriations)) |>
+  count(state, year)
+
+
+#check states included
+n_distinct(ipeds_merged$state)
+
+#all 50 states from 2019 - 2024
+
+
+#calculate total appropriations 
+state_year_appropriations <- ipeds_merged |>
+  group_by(
+    state,
+    year
+  ) |>
+  summarise(
+    total_state_appropriations =
+      sum(
+        state_appropriations,
+        na.rm = TRUE
+      ),
+    n_institutions = n(),
+    n_missing_appropriations =
+      sum(is.na(state_appropriations)),
+    .groups = "drop"
+  )
+
+
+
+#adds state ID 
+
+state_year_appropriations <- state_year_appropriations |>
+  arrange(state, year) |>
+  mutate(
+    state_id = dense_rank(state) #assigns the same numeric ID to every observation with the same state name
+  )
+
+names(state_year_appropriations)
+
+#slect order of final dataset
+state_year_appropriations <- state_year_appropriations |> 
+  select(
+    state_id,
+    state,
+    year,
+    total_state_appropriations,
+    n_institutions,
+    n_missing_appropriations
+  )
+
+
+#
+
+
+
+
+
+
+
+
+
 
 
