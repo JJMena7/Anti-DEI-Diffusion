@@ -1044,15 +1044,436 @@ state_year_appropriations <- state_year_appropriations |>
   )
 
 
-#
+#Extract to excell
+
+write_xlsx(state_year_appropriations, "/Users/jjmena7/Desktop/Dissertation Research/diss_r_analysis/Data/Higher Education/state_year_appropriations.xlsx")
 
 
+###################################################
+# Diffusion Influences 
+
+#Set working Directory
+setwd("/Users/jjmena7/Desktop/Dissertation Research/diss_r_analysis/Data/Diffusion")
+
+#Building neigboring States Data set
+#Note: will use U.S. state polygons
+
+#install needed packages#
+#install.packages("sf")
+#install.packages("tigris")
+
+#Load packages 
+library(sf) ## handles spatial/geographic data and lets us identify which states touch
+library(tigris) # downloads Census geographic boundaries for U.S. states
+library(dplyr)
+library(tidyr)
+
+#Get U.S. State Boundaries 
+states_sf <- states(
+  cb = TRUE,      # use simplified cartographic boundary files
+  year = 2024     # use a recent Census boundary vintage
+)
+
+#inspect data
+glimpse(states_sf)
+
+#filter for only 50 states
+states_50 <- states_sf |> 
+  filter(
+    STUSPS %in% state.abb
+  ) |> 
+  select(
+    state_abbr = STUSPS,
+    state_name = NAME,
+    geometry
+  )
+
+#confirm 50 states 
+nrow(states_50)
+
+#Determine which states share borders
+#identify Contiguous neigbors 
+# st_touches() returns, for every state,
+# the row numbers of states whose boundaries touch it.
+border_list <- st_touches(states_50)
+
+#Preview
+border_list[1:5]
+
+#Build a state-neighbor table 
+state_neighbors <- tibble(
+  focal_row = seq_len(nrow(states_50)),
+  neighbor_row = border_list
+) |>
+  
+  # Expand the list of neighbors into one row per neighbor
+  unnest_longer(neighbor_row) |>
+  
+  # Attach focal-state abbreviation and name
+  mutate(
+    state_abbr = states_50$state_abbr[focal_row],
+    state = states_50$state_name[focal_row],
+    
+    # Attach neighboring-state abbreviation and name
+    neighbor_abbr = states_50$state_abbr[neighbor_row],
+    neighbor = states_50$state_name[neighbor_row]
+  ) |>
+  
+  # Keep only useful variables
+  select(
+    state_abbr,
+    state,
+    neighbor_abbr,
+    neighbor
+  ) |>
+  
+  # Sort for easy inspection
+  arrange(state_abbr, neighbor_abbr)
+
+state_neighbors
+  
+#count neigbors per state 
+
+neighbor_counts <- state_neighbors |>
+  count(
+    state_abbr,
+    state,
+    name = "n_neighbors"
+  ) |>
+  arrange(state_abbr)
+
+neighbor_counts
+
+#validate for accuracy 
+# Texas neighbors
+state_neighbors |>
+  filter(state_abbr == "TX")
+
+state_neighbors |>
+  filter(state_abbr == "AL")
+
+state_neighbors |>
+  filter(state_abbr == "CA")
+
+#check for reciprocity 
+#ofr example alabama and georgia should share eachother as neigbors 
+
+reciprocity_check <- state_neighbors |>
+  anti_join(
+    state_neighbors |>
+      transmute(
+        state_abbr = neighbor_abbr,
+        neighbor_abbr = state_abbr
+      ),
+    by = c("state_abbr", "neighbor_abbr")
+  )
+
+reciprocity_check
+
+#save and extract state-neigbors dataset 
+
+write.csv(
+  state_neighbors,
+  "state_neighbors.csv",
+  row.names = FALSE
+)
+
+#Developing the regional diffusion variable 
+#Following Johnson & Zhang (2020)
+
+#packages needed 
+#library(dplyr)
+#library(tidyr)
 
 
+# set working Directory 
+setwd("/Users/jjmena7/Desktop/Dissertation Research/diss_r_analysis")
+
+#load data DEI event dataset
+dei_df <- read_excel("anti_dei_panel_data.xlsx", sheet = 3) |>
+  clean_names() |>
+  select(
+    state_id,
+    state,
+    state_abbr,
+    year,
+    intro_any,
+    intro_count,
+    adopt_any
+  )
+
+#Inspect data
+glimpse(dei_df)
+glimpse(state_neighbors)
+
+#observations x variables
+dim(dei_df)
+dim(state_neighbors)
+
+#check for duplicates should be 0
+state_neighbors |>
+  count(state_abbr, neighbor_abbr) |>
+  filter(n > 1)
+
+#check event coding is 0/1
+table(dei_df$intro_any, useNA = "ifany")
+table(dei_df$adopt_any, useNA = "ifany")
+
+#check for missing data 
+dei_df |>
+  summarise(
+    missing_intro = sum(is.na(intro_any)),
+    missing_adopt = sum(is.na(adopt_any))
+  )
+
+#CREATE PRIOR POLICY HISTORY 
+#Before the focal year, had this state ever introduced?
+#Before the focal year, had this state ever adopted?
+
+dei_diffusion_reg <- dei_df |>
+  arrange(state_id, year) |> #put observations in chronological order within states
+  group_by(state_id) |> #calculate separately for each state
+  mutate(
+    ever_intro_current = cummax(intro_any), #Becomes 1 in the first year a state introduces and remains 1 afterward
+    prior_intro = lag( #Lag the cumulative indicator by one year, tells whether the state had introduced BEFORE the current year
+      ever_intro_current,
+      n = 1,
+      default = 0
+    ),
+    ever_adopt_current = cummax(adopt_any), #becomes 1 when the state first adopts and stays 1 afterward
+    prior_adopt = lag( #whether the state had adopted BEFORE the current year
+      ever_adopt_current,
+      n = 1,
+      default = 0
+    )
+  ) |> 
+  ungroup()
+
+#check new dataset created
+dei_diffusion_reg |>
+  select(
+    state,
+    year,
+    intro_any,
+    ever_intro_current,
+    prior_intro,
+    adopt_any,
+    ever_adopt_current,
+    prior_adopt
+  ) |>
+  arrange(state, year) |>
+  print(n = 30)
+
+#create neighbor policy status 
+neighbor_status <- dei_diffusion_reg |>
+  select(
+    state_abbr,
+    year,
+    prior_intro,
+    prior_adopt
+  )
+
+# Inspect
+head(neighbor_status, 20)
 
 
+#Create state + year data
+focal_state_years <- dei_diffusion_reg |>
+  select(
+    state_abbr,
+    year
+  ) |>
+  distinct()
+
+head(focal_state_years)
+
+#attach neighbor to each state-year
+neighbor_year_data <- focal_state_years |>
+  
+  # Attach every contiguous neighbor belonging to the focal state
+  inner_join(
+    state_neighbors |>
+      select(state_abbr, neighbor_abbr) |>
+      distinct(),
+    by = "state_abbr"
+  )
+
+#check Texas as an example 
+neighbor_year_data |>
+  filter(state_abbr == "TX") |>
+  arrange(year, neighbor_abbr)
+
+#attach each neighbor prior policy history
+neighbor_year_data <- neighbor_year_data |>
+  left_join(
+    # Rename variables so it is obvious these describe
+    # the NEIGHBOR rather than the focal state.
+    neighbor_status |>
+      rename(
+        neighbor_abbr = state_abbr,
+        neighbor_prior_intro = prior_intro,
+        neighbor_prior_adopt = prior_adopt
+      ),
+    by = c(
+      "neighbor_abbr",
+      "year"
+    )
+  )
+
+#inspect data 
+neighbor_year_data |>
+  filter(state_abbr == "TX") |>
+  arrange(year, neighbor_abbr)
+
+#CALCULATE THE INTRODUCTION DIFFUSION MEASURE 
+
+#adjecent Introduction = (prior introduced bills / total # of contiguous states)
+
+neighbor_diffusion <- neighbor_year_data |>
+  group_by(state_abbr, year) |>
+  summarise(
+    # Number of contiguous neighboring states
+    n_neighbors = n_distinct(neighbor_abbr),
+    # Number of those neighboring states that had
+    # introduced before the focal year
+    n_neighbors_prior_intro = sum(
+      neighbor_prior_intro == 1,
+      na.rm = TRUE
+    ),
+    # PROPORTION of neighbors that had introduced
+    # before the focal year
+    adjacent_intro_prop =
+      n_neighbors_prior_intro / n_neighbors,
+    .groups = "drop"
+  )
+
+#check measure 
+neighbor_diffusion |>
+  arrange(state_abbr, year)
+
+##CALCULATE THE ADOPTION/ENACTMENT DIFFUSION MEASURE 
+neighbor_diffusion <- neighbor_year_data |>
+  group_by(state_abbr, year) |>
+  summarise(
+    # NUMBER OF NEIGHBORS
+    n_neighbors = n_distinct(neighbor_abbr),
+    # INTRODUCTION DIFFUSION
+    # Number of neighbors that previously introduced
+    n_neighbors_prior_intro = sum(
+      neighbor_prior_intro == 1,
+      na.rm = TRUE
+    ),
+    # Proportion of neighbors that previously introduced
+    adjacent_intro_prop =
+      n_neighbors_prior_intro / n_neighbors,
+    # ADOPTION / ENACTMENT DIFFUSION
+    # Number of neighboring states that previously adopted
+    # This variable useful for checking data,
+    # even though it is not final adoption measure.
+    n_neighbors_prior_adopt = sum(
+      neighbor_prior_adopt == 1,
+      na.rm = TRUE
+    ),
+    # Final adoption diffusion variable:
+    #
+    # 1 = at least one neighbor previously adopted
+    # 0 = no neighbor previously adopted
+    adjacent_adopt_any = as.integer(
+      any(neighbor_prior_adopt == 1)
+    ),
+    .groups = "drop"
+  )
+
+#examine regional diffusion dataset
+neighbor_diffusion |>
+  arrange(state_abbr, year) |>
+  print(n = 50)
+
+#verify manually for one state-year 
+#texas
+neighbor_year_data |>
+  filter(
+    state_abbr == "TX",
+    year == 2024
+  ) |>
+  select(
+    state_abbr,
+    year,
+    neighbor_abbr,
+    neighbor_prior_intro,
+    neighbor_prior_adopt
+  )
+
+#Alabama
+neighbor_year_data |>
+  filter(
+    state_abbr == "AL",
+    year == 2024
+  ) |>
+  select(
+    state_abbr,
+    year,
+    neighbor_abbr,
+    neighbor_prior_intro,
+    neighbor_prior_adopt
+  )
 
 
+#compare should add up correctly to .75
+#Texas
+neighbor_diffusion |>
+  filter(
+    state_abbr == "TX",
+    year == 2024
+  )
+
+#Alabama
+neighbor_diffusion |>
+  filter(
+    state_abbr == "AL",
+    year == 2024
+  )
+
+#Merge diffusion variables into DEI panel
+dei_df_diffusion <- dei_diffusion_reg |>
+  left_join(
+    neighbor_diffusion,
+    by = c(
+      "state_abbr",
+      "year"
+    )
+  )
+
+#check data
+dei_df_diffusion |>
+  select(
+    state,
+    state_abbr,
+    year,
+    intro_any,
+    adopt_any,
+    adjacent_intro_prop,
+    adjacent_adopt_any
+  ) |>
+  arrange(state, year) |>
+  print(n = 50)
+
+#check Alaska & Hawaii should be NA
+dei_df_diffusion |>
+  filter(state_abbr %in% c("AK", "HI")) |>
+  select(
+    state,
+    year,
+    adjacent_intro_prop,
+    adjacent_adopt_any
+  )
+
+#extract final regional diffusion variables 
+write.csv(
+  dei_df_diffusion,
+  "dei_regional_diffusion.csv",
+  row.names = FALSE
+)
 
 
 
