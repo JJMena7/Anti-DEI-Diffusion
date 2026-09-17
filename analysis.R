@@ -187,9 +187,9 @@ ggplot(annual_long, aes(x = year, y = n_states, group = event_type, linetype = e
   theme_minimal(base_size = 12)
 
 
-# =========================
+# =========================================================
 # STEP 6: CUMULATIVE SPREAD OF INTRODUCTIONS AND ADOPTIONS
-# =========================
+# =========================================================
 
 # Create cumulative "ever introduced by this year" and "ever adopted by this year" indicators
 cumulative_summary <- dei_df |>

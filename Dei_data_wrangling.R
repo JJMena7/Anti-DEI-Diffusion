@@ -74,7 +74,7 @@ dei_lagged <- dei_df |>
 library(tidycensus)
 library(tidyverse)
 
-census_api_key("30013846e58da2cd23693309dc3b01f72a687889", install = TRUE)
+#census_api_key("30013846e58da2cd23693309dc3b01f72a687889", install = TRUE)
 
 
 #Search for variables
@@ -89,7 +89,9 @@ view(acs5_look_up_2020)
 #Note to self: will try to pull ACS1 data for 2021 - 2025 later
 #Pulled B03002_001 (Total population) & B03002_003 (Not Hispanic or Latino: White alone)
 
-years <- 2020:2025
+#years <- 2020:2025
+
+years <- 2019:2025
 
 get_state_white_prop <- function(year) {
   
@@ -143,10 +145,11 @@ state_white_export <- state_white_acs5 %>%
 #View data
 view(state_white_export)
 
+#data from 2019 - 20245 for ACS5 data
 #export to csv
 write_csv(
   state_white_export,
-  "state_white_nonhispanic_proportions_acs5_2020_2024.csv"
+  "state_white_nonhispanic_proportions_acs5_2019_2024.csv"
 )
 
 
@@ -194,9 +197,9 @@ total_age_vars <- c(
 #white_nh_age_vars / total_age_vars
 
 
-#Pulling ACS 5 data 
+#Pulling ACS 5 data (pulling 18 - 24 data )
 
-years<- 2020:2024
+years<- 2018:2024
 
 get_state_white_nh_15_24 <- function(year) {
   
@@ -267,16 +270,14 @@ state_white_nh_15_24 <- map_dfr(years, get_state_white_nh_15_24)
 #View
 view(state_white_nh_15_24)
 
-#arrange data by state and year & round third decimal
+#arrange data by state and year 
 state_white_nh_15_24_export <- state_white_nh_15_24 %>%
   transmute(
     state,
     year,
     acs_period,
-    white_nh_15_24_prop = round(white_nh_15_24_prop, 3),
-    white_nh_15_24_pct = round(white_nh_15_24_pct, 3)
-  ) %>%
-  arrange(state, year)
+    white_nh_15_24_prop,
+    white_nh_15_24_pct) %>% arrange(state, year)
 
 
 #view data
@@ -286,13 +287,13 @@ view(state_white_nh_15_24_export)
 state_white_nh_15_24_export %>%
   filter(state == "Alabama")
 
-#export dataset file for ACS5 estimates (2020 - 2024)
+#export dataset file for ACS5 estimates (2019 - 2024)
 write_csv(
   state_white_nh_15_24_export,
-  "state_white_nh_15_24_proportions_acs5_2020_2024.csv"
+  "state_white_nh_15_24_proportions_acs5_2018_2024.csv"
 )
 
-#ACS1 data extract------
+#ACS1 data extract for 2021 and 2024
 
 year_acs1 <- 2021:2024
 
@@ -358,22 +359,19 @@ get_state_white_nh_15_24_acs1 <- function(year) {
     )
 }
 
-state_white_nh_15_24_acs1 <- map_dfr(
-  year_acs1,
-  get_state_white_nh_15_24_acs1
-)
+state_white_nh_15_24_acs1 <- map_dfr(year_acs1, get_state_white_nh_15_24_acs1)
 
 
 #view data
 view(state_white_nh_15_24_acs1)
 
-#ACS 1arrange data by state and year & round third decimal
+#ACS 1arrange data by state and year 
 state_white_nh_15_24_acs1_export <- state_white_nh_15_24_acs1 %>%
   transmute(
     state,
     year,
-    white_nh_15_24_prop_ac1 = round(white_nh_15_24_prop, 3),
-    white_nh_15_24_pct_ac1 = round(white_nh_15_24_pct, 3)
+    white_nh_15_24_prop,
+    white_nh_15_24_pct
   ) %>%
   arrange(state, year)
 
@@ -381,11 +379,428 @@ state_white_nh_15_24_acs1_export <- state_white_nh_15_24_acs1 %>%
 view(state_white_nh_15_24_acs1_export)
 
 
-#export dataset file for ACS1 estimates (2021 - 2024)
-write_csv(
-  state_white_nh_15_24_acs1_export,
-  "state_white_nh_15_24_proportions_acs1_2020_2024.csv"
+
+#Acs1 2018 data
+
+year_2018 <- 2018
+
+get_state_white_acs1_2018 <- function(year) {
+  
+  message("Getting data from the ", year, " 1-year ACS")
+  
+  tidycensus::get_acs(
+    geography = "state",
+    survey = "acs1",
+    year = year,
+    variables = c(
+      # Numerator: Non-Hispanic White alone ages 15-24
+      white_nh_m_15_17 = "B01001H_006",
+      white_nh_m_18_19 = "B01001H_007",
+      white_nh_m_20_24 = "B01001H_008",
+      white_nh_f_15_17 = "B01001H_021",
+      white_nh_f_18_19 = "B01001H_022",
+      white_nh_f_20_24 = "B01001H_023",
+      
+      # Denominator: Total population ages 15-24
+      total_m_15_17 = "B01001_006",
+      total_m_18_19 = "B01001_007",
+      total_m_20    = "B01001_008",
+      total_m_21    = "B01001_009",
+      total_m_22_24 = "B01001_010",
+      total_f_15_17 = "B01001_030",
+      total_f_18_19 = "B01001_031",
+      total_f_20    = "B01001_032",
+      total_f_21    = "B01001_033",
+      total_f_22_24 = "B01001_034"
+    ),
+    output = "wide",
+    cache_table = FALSE
+  ) %>%
+    transmute(
+      year = year,
+      GEOID,
+      state = NAME,
+      
+      white_nh_15_24 =
+        white_nh_m_15_17E +
+        white_nh_m_18_19E +
+        white_nh_m_20_24E +
+        white_nh_f_15_17E +
+        white_nh_f_18_19E +
+        white_nh_f_20_24E,
+      
+      total_15_24 =
+        total_m_15_17E +
+        total_m_18_19E +
+        total_m_20E +
+        total_m_21E +
+        total_m_22_24E +
+        total_f_15_17E +
+        total_f_18_19E +
+        total_f_20E +
+        total_f_21E +
+        total_f_22_24E,
+      
+      white_nh_15_24_prop = white_nh_15_24 / total_15_24,
+      white_nh_15_24_pct = 100 * white_nh_15_24_prop
+    )
+}
+
+state_white_nh_acs1_18 <- map_dfr(year_2018, get_state_white_acs1_2018)
+
+view(state_white_nh_acs1_18)
+
+#arrange data 
+
+state_white_nh_acs1_18 <- state_white_nh_acs1_18 |>
+  transmute(
+    state,
+    year,
+    white_nh_15_24_prop,
+    white_nh_15_24_pct
+  ) %>%
+  arrange(state, year)
+
+
+view(state_white_nh_acs1_18)
+
+
+#Acs1 2019 data 
+
+year_2019 <- 2019
+
+get_state_white_acs1_2019 <- function(year) {
+  
+  message("Getting data from the ", year, " 1-year ACS")
+  
+  tidycensus::get_acs(
+    geography = "state",
+    survey = "acs1",
+    year = year,
+    variables = c(
+      # Numerator: Non-Hispanic White alone ages 15-24
+      white_nh_m_15_17 = "B01001H_006",
+      white_nh_m_18_19 = "B01001H_007",
+      white_nh_m_20_24 = "B01001H_008",
+      white_nh_f_15_17 = "B01001H_021",
+      white_nh_f_18_19 = "B01001H_022",
+      white_nh_f_20_24 = "B01001H_023",
+      
+      # Denominator: Total population ages 15-24
+      total_m_15_17 = "B01001_006",
+      total_m_18_19 = "B01001_007",
+      total_m_20    = "B01001_008",
+      total_m_21    = "B01001_009",
+      total_m_22_24 = "B01001_010",
+      total_f_15_17 = "B01001_030",
+      total_f_18_19 = "B01001_031",
+      total_f_20    = "B01001_032",
+      total_f_21    = "B01001_033",
+      total_f_22_24 = "B01001_034"
+    ),
+    output = "wide",
+    cache_table = FALSE
+  ) %>%
+    transmute(
+      year = year,
+      GEOID,
+      state = NAME,
+      
+      white_nh_15_24 =
+        white_nh_m_15_17E +
+        white_nh_m_18_19E +
+        white_nh_m_20_24E +
+        white_nh_f_15_17E +
+        white_nh_f_18_19E +
+        white_nh_f_20_24E,
+      
+      total_15_24 =
+        total_m_15_17E +
+        total_m_18_19E +
+        total_m_20E +
+        total_m_21E +
+        total_m_22_24E +
+        total_f_15_17E +
+        total_f_18_19E +
+        total_f_20E +
+        total_f_21E +
+        total_f_22_24E,
+      
+      white_nh_15_24_prop = white_nh_15_24 / total_15_24,
+      white_nh_15_24_pct = 100 * white_nh_15_24_prop
+    )
+}
+
+state_white_nh_acs1_19 <- map_dfr(year_2019, get_state_white_acs1_2019)
+
+view(state_white_nh_acs1_19)
+
+#arrange data 
+
+state_white_nh_acs1_19 <- state_white_nh_acs1_19 |>
+  transmute(
+    state,
+    year,
+    white_nh_15_24_prop,
+    white_nh_15_24_pct
+  ) %>%
+  arrange(state, year)
+
+
+view(state_white_nh_acs1_19)
+
+
+#2020 AC1 experimental estimates
+
+library(tidyverse)
+library(tidycensus)
+
+# ------------------------------------------------------------
+# Setup
+# ------------------------------------------------------------
+
+state_abbrs <- c(state.abb)
+
+pums_base_url <- paste0(
+  "https://www2.census.gov/programs-surveys/acs/",
+  "experimental/2020/data/pums/1-Year/"
 )
+
+# ------------------------------------------------------------
+# Function
+# ------------------------------------------------------------
+
+get_state_white_nh_15_24_2020 <- function(state_abbr) {
+
+  message("Processing ", state_abbr)
+
+  zip_name <- paste0(
+    "csv_p",
+    tolower(state_abbr),
+    ".zip"
+  )
+
+  zip_url <- paste0(
+    pums_base_url,
+    zip_name
+  )
+
+  zip_path <- tempfile(fileext = ".zip")
+  extract_dir <- tempfile(pattern = "pums_")
+
+  dir.create(extract_dir)
+
+  on.exit(
+    unlink(
+      c(zip_path, extract_dir),
+      recursive = TRUE
+    ),
+    add = TRUE
+  )
+
+  # Download state person-level PUMS file
+  download.file(
+    url = zip_url,
+    destfile = zip_path,
+    mode = "wb",
+    quiet = TRUE
+  )
+
+  # Extract ZIP file
+  unzip(
+    zipfile = zip_path,
+    exdir = extract_dir
+  )
+
+  # Find the extracted CSV
+  person_csv <- list.files(
+    path = extract_dir,
+    pattern = "\\.csv$",
+    full.names = TRUE,
+    ignore.case = TRUE
+  )
+
+  if (length(person_csv) != 1) {
+    stop(
+      "Expected one CSV in ",
+      zip_name,
+      " but found ",
+      length(person_csv)
+    )
+  }
+
+  # Read needed variables and convert their storage types
+  pums <- readr::read_csv(
+    file = person_csv,
+    col_select = tidyselect::all_of(
+      c(
+        "ST",
+        "AGEP",
+        "RAC1P",
+        "HISP",
+        "PWGTP"
+      )
+    ),
+    show_col_types = FALSE,
+    progress = FALSE
+  ) %>%
+    mutate(
+      ST = as.character(ST),
+      AGEP = as.integer(AGEP),
+      RAC1P = as.integer(RAC1P),
+      HISP = as.integer(HISP),
+      PWGTP = as.numeric(PWGTP)
+    )
+
+  # State FIPS code
+  geoid_value <- stringr::str_pad(
+    dplyr::first(pums$ST),
+    width = 2,
+    side = "left",
+    pad = "0"
+  )
+
+  # Calculate weighted estimates
+  pums %>%
+    filter(
+      between(AGEP, 15, 24)
+    ) %>%
+    summarise(
+      total_15_24 = sum(
+        PWGTP,
+        na.rm = TRUE
+      ),
+
+      white_nh_15_24 = sum(
+        PWGTP[
+          RAC1P == 1 &
+          HISP == 1
+        ],
+        na.rm = TRUE
+      )
+    ) %>%
+    mutate(
+      year = 2020L,
+      GEOID = geoid_value,
+      state_abbr = state_abbr,
+
+      white_nh_15_24_prop =
+        white_nh_15_24 / total_15_24,
+
+      white_nh_15_24_pct =
+        100 * white_nh_15_24_prop
+    ) %>%
+    select(
+      year,
+      GEOID,
+      state_abbr,
+      white_nh_15_24,
+      total_15_24,
+      white_nh_15_24_prop,
+      white_nh_15_24_pct
+    )
+}
+
+# ------------------------------------------------------------
+# Test Alabama
+# ------------------------------------------------------------
+
+test_alabama <-
+  get_state_white_nh_15_24_2020("AL")
+
+test_alabama
+
+
+#all states
+state_white_nh_15_24_acs1_2020 <-
+  purrr::map_dfr(
+    state_abbrs,
+    get_state_white_nh_15_24_2020
+  )
+
+view(state_white_nh_15_24_acs1_2020)
+
+
+#add state names
+
+state_crosswalk <-
+  tidycensus::fips_codes %>%
+  transmute(
+    GEOID = as.character(state_code),
+    state = state_name
+  ) %>%
+  distinct() %>%
+  mutate(
+    GEOID = stringr::str_pad(
+      GEOID,
+      width = 2,
+      side = "left",
+      pad = "0"
+    )
+  )
+
+state_white_nh_15_24_acs1_2020 <-
+  state_white_nh_15_24_acs1_2020 %>%
+  left_join(
+    state_crosswalk,
+    by = "GEOID"
+  ) %>%
+  select(
+    year,
+    GEOID,
+    state,
+    state_abbr,
+    white_nh_15_24,
+    total_15_24,
+    white_nh_15_24_prop,
+    white_nh_15_24_pct
+  ) %>%
+  arrange(GEOID)
+
+view(state_white_nh_15_24_acs1_2020)
+
+
+#all data 2019 - 2024#
+
+
+#2019 AC1 estimates
+state_white_nh_acs1_19
+
+#2020 AC1 Experimental estimates
+state_white_nh_15_24_acs1_2020
+
+#2021:2024 AC1 estimates
+state_white_nh_15_24_acs1_export
+
+
+#merge all data frames
+
+state_white_nh_15_24_ac1_19_24 <- bind_rows(
+  state_white_nh_acs1_19,
+  state_white_nh_15_24_acs1_2020,
+  state_white_nh_15_24_acs1_export
+) |> arrange(state, year)
+
+View(state_white_nh_15_24_ac1_19_24)
+
+
+#export dataset file for ACS1 estimates (2019 - 2024)
+write_csv(
+  state_white_nh_15_24_ac1_19_24,
+  "state_white_nh_15_24_proportions_acs1_2019_2024.csv"
+)
+
+
+# Combine into one long-format dataset
+state_white_nh_15_24_combined <- bind_rows(
+  acs1_export,
+  acs5_export
+) %>%
+  arrange(state, acs_type, year)
+
+# View combined file
+View(state_white_nh_15_24_combined)
+
 
 #data notes AC1 data is missing 2020 year data, however AC5 data has 
 
@@ -481,7 +896,7 @@ State <- c("Alabama","Alaska","Arizona","Arkansas","California","Colorado","Conn
                        "Pennsylvania","Rhode Island","South Carolina","South Dakota","Tennessee","Texas",
                        "Utah","Vermont","Virginia","Washington","West Virginia","Wisconsin","Wyoming")
 
-Years <- c("2020","2021","2022", "2023", "2024", "2025")
+Years <- c("2019","2020","2021","2022", "2023", "2024", "2025")
 
 #create data set by institution for each year
 state_flag_white <- data.frame(
@@ -490,15 +905,15 @@ state_flag_white <- data.frame(
   Years = rep(Years, times = length(Institution))
 )
 
-
 head(state_flag_white)
 
 #create new excel file
-write_xlsx(state_flag_white, "/Users/jjmena7/Desktop/diss_r_analysis/state_flagship_white.xlsx")
+write_xlsx(state_flag_white, "/Users/jjmena7/Desktop/Dissertation Research/diss_r_analysis/Data/state_flagship_white.xlsx")
 
 ##Merge IPEDS data to state flagships data
 
 #Notes: Accessible Ipeds data goes from 2020 - 2024
+#(Update including 2019 data below - Sept. 17. 2026)
 ##variable of interest: 
 #"Full-time students, Undergraduate, Degree/certificate-seeking, First-time"
 
@@ -513,13 +928,14 @@ library(janitor)
 ###1. load data 
 
 #Set working directory
-setwd("/Users/jjmena7/Desktop/diss_r_analysis/Data/flasgship")
+setwd("/Users/jjmena7/Desktop/Dissertation Research/diss_r_analysis/Data/flasgship")
 
 #Load state flagship data
-state_flagships <- read_excel("state_flagships.xlsx")
+state_flagships <- read_excel("state_flagship_white.xlsx")
 
 #Load Ipeds Data
 
+iped_2019 <- read_csv("2019.csv")
 iped_2020 <- read_csv("2020.csv")
 iped_2021 <- read_csv("2021.csv")
 iped_2022 <- read_csv("2022.csv")
@@ -556,7 +972,7 @@ read_ipeds_year <- function(file_path) {
 }
 
 
-ipeds_files <- c("2020.csv", "2021.csv", "2022.csv", "2023.csv", "2024.csv")
+ipeds_files <- c("2019.csv", "2020.csv", "2021.csv", "2022.csv", "2023.csv", "2024.csv")
 
 ipeds_panel <- map_dfr(ipeds_files, read_ipeds_year)
 
@@ -629,101 +1045,434 @@ flagship_crosswalk <- tribble(
   "Wyoming", "University of Wyoming", "240727", "University of Wyoming"
 )
 
-#check that each state has a unit ID
-state_flagships_with_id <- state_flagships |>
-  left_join(
-    flagship_crosswalk,
-    by = c("state", "institution")
+#Merge IPEDS panel data (2019 -2024) with states
+
+state_lookup <- flagship_crosswalk |>
+  transmute(
+    unitid = as.character(unitid),
+    state
+  ) %>%
+  distinct(unitid, .keep_all = TRUE)
+
+ipeds_panel <- ipeds_panel |>
+  mutate(unitid = as.character(unitid)) |>
+  left_join(state_lookup, by = "unitid")
+
+
+#rearrange columns
+ipeds_panel <- ipeds_panel |>
+  select(
+    unitid,
+    year,
+    state,
+    ipeds_institution_name,
+    first_time_total,
+    first_time_white,
+    flagship_white_prop
   )
 
-state_flagships_with_id |>
-  filter(is.na(unitid)) |>
-  distinct(state, institution)
-
-#Merge IPEDS data with unitid and year
-flagship_merged <- state_flagships_with_id |>
-  select(-flagship_white_prop) |>
-  left_join(
-    ipeds_panel,
-    by = c("unitid", "year")
-  )
 
 #check for any missing data
-flagship_merged |>
+ipeds_panel |>
   filter(year <= 2024, is.na(first_time_total)) |>
-  distinct(state, institution, unitid, year)
+  distinct(state, ipeds_institution_name, unitid, year)
 
 #Save as new csv file
 #Save as CSV
-#write_csv(flagship_merged, "state_flagships_ipeds_merged.csv")
+#
+write_csv(ipeds_panel, "state_flagships_ipeds_19_24.csv")
 
 ##### Create White Demographic representation & annual change estimates ####
 
-#first create two separate estimates for ACS 5 & ACS 1 of white state proportions
+#load data to be used
+ac1 <- read_csv("/Users/jjmena7/Desktop/Dissertation Research/diss_r_analysis/Data/Racial Threat/acs1_state_white_nh_15_24_2019_2024.csv")
+ac5 <- read_csv("/Users/jjmena7/Desktop/Dissertation Research/diss_r_analysis/Data/Racial Threat/acs5_state_white_nh_15_24_2019_2024.csv")
+
+ipeds_panel <- read_csv("/Users/jjmena7/Desktop/Dissertation Research/diss_r_analysis/Data/flasgship/state_flagships_ipeds_19_24.csv")
+
+
+#Data frames to be used:
+
+#flagship white proportion estimates
+ipeds_panel
+
+#white non-Hispanic 15-24 AC1 & AC5 year estimates
+ac1
+ac5
+
+
+
+# 1. Validate and standardize the three input datasets
+ipeds_base <- ipeds_panel |>
+  transmute(
+    unitid = as.integer(unitid),
+    year = as.integer(year),
+    state,
+    ipeds_institution_name,
+    first_time_total,
+    first_time_white,
+    flagship_white_prop
+  )
+
+acs1_lookup <- ac1 |>
+  transmute(
+    state,
+    year = as.integer(year),
+    state_white_prop_acs1 = white_nh_15_24_prop
+  )
+
+acs5_lookup <- ac5 |>
+  transmute(
+    state,
+    year = as.integer(year),
+    acs5_period = acs_period,
+    state_white_prop_acs5 = white_nh_15_24_prop
+  )
+
+#check that each acs data have one estimation per year
+acs1_lookup |>
+  count(state, year) |>
+  filter(n > 1)
+
+acs5_lookup |>
+  count(state, year) |>
+  filter(n > 1)
+
+# 2. Create a final 2019–2024 IPEDS panel
+
+ipeds_balanced <- ipeds_base |>
+  group_by(unitid) |>
+  complete(year = 2019:2024) |>
+  fill(
+    state,
+    ipeds_institution_name,
+    .direction = "downup"
+  ) |>
+  ungroup() |>
+  arrange(unitid, year)
+
+
+
+# 3. Join ACS estimates and calculate white demographic gaps
+
+analysis_panel <- ipeds_balanced |>
+  left_join(
+    acs1_lookup,
+    by = c("state", "year"),
+    relationship = "many-to-one"
+  ) |>
+  left_join(
+    acs5_lookup,
+    by = c("state", "year"),
+    relationship = "many-to-one"
+  ) |>
+  mutate(
+    white_demo_rep_acs1 =
+      flagship_white_prop - state_white_prop_acs1,
+
+    white_demo_rep_acs5 =
+      flagship_white_prop - state_white_prop_acs5
+  ) |>
+  relocate(
+    state_white_prop_acs1,
+    state_white_prop_acs5,
+    white_demo_rep_acs1,
+    white_demo_rep_acs5,
+    .after = flagship_white_prop
+  ) |>
+  arrange(unitid, year)
 
 #variable calcualtion
 #white_demo_rep_acs5 = flagship_white_prop - state_white_prop_acs5
 #white_demo_rep_acs1 = flagship_white_prop - state_white_prop_acs1
 
 
-#sort and format variables of interest
-dei_df <- dei_df |>
-  mutate(
-    year = as.integer(year),
-    rep_leg_prop_lag = parse_number(as.character( rep_leg_prop_lag)),
-    flagship_white_prop = parse_number(as.character(flagship_white_prop)), #parse_number allows NAs to be differentiated from data
-    state_white_prop_acs1 = parse_number(as.character(state_white_prop_acs1)),
-    state_white_prop_acs5 = parse_number(as.character(state_white_prop_acs5))
-  ) |>
-  arrange(state, year)
-
-#Create variables for new estimates 
-
-dei_df <- dei_df |>
-  mutate(
-    white_demo_rep_acs1 = flagship_white_prop - state_white_prop_acs1,
-    white_demo_rep_acs5 = flagship_white_prop - state_white_prop_acs5
+#check missing data
+analysis_panel |>
+  summarise(
+    observations = n(),
+    institutions = n_distinct(unitid),
+    states = n_distinct(state),
+    years = n_distinct(year),
+    missing_acs1 = sum(is.na(state_white_prop_acs1)),
+    missing_acs5 = sum(is.na(state_white_prop_acs5)),
+    missing_ipeds = sum(is.na(flagship_white_prop)),
+    missing_rep_acs1 = sum(is.na(white_demo_rep_acs1)),
+    missing_rep_acs5 = sum(is.na(white_demo_rep_acs5))
   )
 
-#check data 
-dei_df |>
+
+#======================================================
+# 5. Calculate annual changes and lagged annual changes
+#======================================================
+
+analysis_panel <- analysis_panel |>
+  arrange(unitid, year) |>
+  group_by(unitid) |>
+  mutate(
+    # Annual change from year t-1 to year t
+    white_demo_change_acs1 =
+      white_demo_rep_acs1 - lag(white_demo_rep_acs1),
+
+    white_demo_change_acs5 =
+      white_demo_rep_acs5 - lag(white_demo_rep_acs5),
+
+    # Previous year's annual change
+    lagged_white_demo_change_acs1 =
+      lag(white_demo_change_acs1),
+
+    lagged_white_demo_change_acs5 =
+      lag(white_demo_change_acs5)
+  ) |>
+  ungroup()
+
+
+#load 2018 data
+iped_2018 <- read_csv("/Users/jjmena7/Desktop/Dissertation Research/diss_r_analysis/Data/flasgship/2018.csv")
+
+#acs5 2018 - 2024
+state_white_nh_15_24_export
+
+#acs1 2018 - 2024
+state_white_nh_acs1_18
+
+
+#============================
+#1. prepare IPEDS 2018 data
+#============================
+
+ipeds_2018_clean <- iped_2018 |>
+  transmute(
+    unitid = as.integer(unitid),
+    year = as.integer(year),
+    ipeds_institution_name = `institution name`,
+    first_time_total = `EF2018A_RV.Grand total`,
+    first_time_white = `EF2018A_RV.White total`
+  ) |>
+  mutate(
+    flagship_white_prop =
+      first_time_white / first_time_total
+  ) |>
+  left_join(
+    state_lookup |>
+      mutate(unitid = as.integer(unitid)),
+    by = "unitid",
+    relationship = "many-to-one"
+  ) |>
+  select(
+    unitid,
+    year,
+    state,
+    ipeds_institution_name,
+    first_time_total,
+    first_time_white,
+    flagship_white_prop
+  )
+
+
+#check
+nrow(ipeds_2018_clean)
+# Expected: 50
+sum(is.na(ipeds_2018_clean$state))
+# Expected: 0
+
+#==============================================
+#2. combine 2018 with exisitng ipeds panel data
+#===============================================
+
+ipeds_2019_2024 <- ipeds_panel |>
+  transmute(
+    unitid = as.integer(unitid),
+    year = as.integer(year),
+    state,
+    ipeds_institution_name,
+    first_time_total,
+    first_time_white,
+    flagship_white_prop
+  ) |>
+  filter(year %in% 2019:2024)
+
+ipeds_base <- bind_rows(
+  ipeds_2018_clean,
+  ipeds_2019_2024
+) |>
+  arrange(unitid, year)
+
+#check for duplicates
+ipeds_base |>
+  count(unitid, year) |>
+  filter(n > 1)
+
+#none should return
+
+#=============================
+#3. Create 2018 - 2024 panel
+#=============================
+
+ipeds_balanced <- ipeds_base |>
+  group_by(unitid) |>
+  complete(year = 2018:2024) |>
+  fill(
+    state,
+    ipeds_institution_name,
+    .direction = "downup"
+  ) |>
+  ungroup() |>
+  arrange(unitid, year)
+
+
+#=================================
+#prepare ACS data
+#=================================
+
+#add 2018 acs1 estimates
+acs1_2018 <- state_white_nh_acs1_18 |>
+  transmute(
+    state,
+    year = as.integer(year),
+    white_nh_15_24_prop
+  ) |>
+  filter(year == 2018)
+
+ac1_all <- bind_rows(
+  ac1 |>
+    transmute(
+      state,
+      year = as.integer(year),
+      white_nh_15_24_prop
+    ),
+  acs1_2018
+) |>
+  distinct(state, year, .keep_all = TRUE) |>
+  arrange(state, year)
+
+ac1_all |>
+  count(year)
+
+acs1_lookup <- ac1_all |>
+  transmute(
+    state,
+    year = as.integer(year),
+    state_white_prop_acs1 = white_nh_15_24_prop
+  ) |>
+  distinct(state, year, .keep_all = TRUE) |>
+  arrange(state, year)
+
+acs1_lookup |>
+  count(year)
+
+#acs 5 merging 2018 estimates 
+acs5_lookup <- state_white_nh_15_24_export |>
+  transmute(
+    state,
+    year = as.integer(year),
+    acs5_period = acs_period,
+    state_white_prop_acs5 = white_nh_15_24_prop
+  ) |>
+  filter(year %in% 2018:2024) |>
+  distinct(state, year, .keep_all = TRUE) |>
+  arrange(state, year)
+
+acs5_lookup |>
+  count(year)
+
+#rebuild pandel data
+analysis_panel <- ipeds_balanced |>
+  left_join(
+    acs1_lookup,
+    by = c("state", "year"),
+    relationship = "many-to-one"
+  ) |>
+  left_join(
+    acs5_lookup,
+    by = c("state", "year"),
+    relationship = "many-to-one"
+  ) |>
+  mutate(
+    white_demo_rep_acs1 =
+      flagship_white_prop - state_white_prop_acs1,
+
+    white_demo_rep_acs5 =
+      flagship_white_prop - state_white_prop_acs5
+  ) |>
+  arrange(unitid, year)
+
+#check whether 2018 is included
+analysis_panel |>
+  filter(year == 2018) |>
+  summarise(
+    observations = n(),
+    missing_acs1 = sum(is.na(state_white_prop_acs1)),
+    missing_acs5 = sum(is.na(state_white_prop_acs5))
+  )
+
+# ============================================================
+# 5. Calculate annual and lagged annual demographic change
+# ============================================================
+
+analysis_panel <- analysis_panel |>
+  arrange(unitid, year) |>
+  group_by(unitid) |>
+  mutate(
+    # Change in representation gap from t-1 to t
+    white_demo_change_acs1 =
+      white_demo_rep_acs1 - lag(white_demo_rep_acs1),
+
+    white_demo_change_acs5 =
+      white_demo_rep_acs5 - lag(white_demo_rep_acs5),
+
+    # Previous year's annual change
+    lagged_white_demo_change_acs1 =
+      lag(white_demo_change_acs1),
+
+    lagged_white_demo_change_acs5 =
+      lag(white_demo_change_acs5)
+  ) |>
+  ungroup() |>
+  relocate(
+    white_demo_change_acs1,
+    white_demo_change_acs5,
+    lagged_white_demo_change_acs1,
+    lagged_white_demo_change_acs5,
+    .after = white_demo_rep_acs5
+  ) |>
+  arrange(unitid, year)
+
+#check on state
+analysis_panel |>
+  filter(state == "Alabama") |>
   select(
     state,
     year,
-    flagship_white_prop,
-    state_white_prop_acs1,
-    state_white_prop_acs5,
     white_demo_rep_acs1,
-    white_demo_rep_acs5
-  ) |>
-  arrange(state, year) |>
-  View()
+    white_demo_change_acs1,
+    lagged_white_demo_change_acs1,
+    white_demo_rep_acs5,
+    white_demo_change_acs5,
+    lagged_white_demo_change_acs5
+  )
 
-#Next, calculate white annual change within each state 
+#check for 2020
+analysis_panel |>
+  filter(year == 2020) |>
+  select(
+    state,
+    lagged_white_demo_change_acs1,
+    lagged_white_demo_change_acs5
+  )
 
-dei_df <- dei_df |>
-  arrange(state, year) |>
-  group_by(state) |>
-  mutate(
-    white_demo_change_acs1 = white_demo_rep_acs1 - lag(white_demo_rep_acs1),
-    white_demo_change_acs5 = white_demo_rep_acs5 - lag(white_demo_rep_acs5)
-  ) |>
-  ungroup()
-
-#Now lag annual changes 
-
-dei_df <- dei_df |>
-  arrange(state, year) |>
-  group_by(state) |>
-  mutate(
-    lagged_white_demo_change_acs1 = lag(white_demo_change_acs1),
-    lagged_white_demo_change_acs5 = lag(white_demo_change_acs5)
-  ) %>%
-  ungroup()
+#extract as csv file 
+write_csv(analysis_panel, "state_racialthreat_indicators.csv")
 
 
-#extract dataset with new variables 
-write_xlsx(dei_df, "/Users/jjmena7/Desktop/diss_r_analysis/dei_df.xlsx")
+
+
+
+
+#extract full panel data 
+
+
+
 
 
 ###################################################
@@ -1474,6 +2223,333 @@ write.csv(
   "dei_regional_diffusion.csv",
   row.names = FALSE
 )
+
+##PARTISAN DIFFUSION
+
+#packages in use 
+library(dplyr)
+
+#load data DEI event dataset
+dei_df <- read_excel("anti_dei_panel_data.xlsx", sheet = 3) |>
+  clean_names() |>
+  select(
+    state_id,
+    state,
+    state_abbr,
+    year,
+    intro_any,
+    intro_count,
+    adopt_any,
+    rep_leg_prop,
+    rep_leg_prop_lag
+  )
+
+# Inspect the raw and lagged Republican legislative proportions
+dei_df |>
+  select(
+    state_id,
+    state,
+    year,
+    rep_leg_prop,
+    rep_leg_prop_lag
+  ) |>
+  arrange(state_id, year) |>
+  print(n = 30)
+
+#create prior history variables for introduction and adoption
+dei_partisan_base <- dei_df |>
+  # Put state-year observations in chronological order
+  arrange(state_id, year) |>
+  # Perform calculations separately for each state
+  group_by(state_id) |>
+  mutate(
+    # INTRODUCTION
+    # Becomes 1 once the state has introduced at least one bill
+    ever_intro_current = cummax(intro_any),
+    # Indicates whether the state had already introduced
+    # BEFORE the focal year.
+    prior_intro = lag(
+      ever_intro_current,
+      n = 1,
+      default = 0
+    ),
+    # ADOPTION
+    # Becomes 1 once the state has adopted policy
+    ever_adopt_current = cummax(adopt_any),
+    # Indicates whether the state had already adopted
+    # BEFORE the focal year.
+    prior_adopt = lag(
+      ever_adopt_current,
+      n = 1,
+      default = 0
+    )
+  ) |>
+  ungroup()
+
+
+#check for missing data in any of the variables of interest 
+dei_partisan_base |>
+  summarise(
+    n_rows = n(),
+    missing_rep_raw = sum(is.na(rep_leg_prop)),
+    missing_rep_lag = sum(is.na(rep_leg_prop_lag)),
+    missing_intro = sum(is.na(intro_any)),
+    missing_adopt = sum(is.na(adopt_any)),
+    missing_prior_intro = sum(is.na(prior_intro)),
+    missing_prior_adopt = sum(is.na(prior_adopt))
+  )
+
+#create focal-state and peer states data set
+
+#Focal-state 
+# Each row represents the state whose partisan diffusion
+# exposure to be calcualted
+
+focal_states <- dei_partisan_base |>
+  select(
+    year,
+    focal_state_id = state_id,
+    focal_state = state,
+    focal_abbr = state_abbr,
+    focal_rep_lag = rep_leg_prop_lag
+  )
+
+
+# Peer-state version
+# Each row represents a potential comparison state
+peer_states <- dei_partisan_base |>
+  select(
+    year,
+    peer_state_id = state_id,
+    peer_state = state,
+    peer_abbr = state_abbr,
+    peer_rep_lag = rep_leg_prop_lag,
+    peer_prior_intro = prior_intro,
+    peer_prior_adopt = prior_adopt
+  )
+
+#next, create state pair combinations within same year
+partisan_pairs <- focal_states |>
+  # Join focal states to potential peer states
+  # within the same year
+  inner_join(
+    peer_states,
+    by = "year"
+  ) |>
+  # Remove self-comparisons
+  # Example: Texas cannot be a peer of Texas
+  filter(focal_state_id != peer_state_id)
+
+
+#this creates a dataset with 49 possible pairs within each year (14,700 observations)
+
+
+
+#CALCULATE PARTISAN SIMILIARITY/DISTANCE# 
+partisan_pairs <- partisan_pairs |>
+  mutate(
+    # Absolute difference between focal state's
+    # lagged Republican proportion and peer state's lagged Republican proportion.
+    # Smaller = more politically similar
+    partisan_distance = abs(
+      focal_rep_lag - peer_rep_lag
+    )
+  )
+
+#inspect
+glimpse(partisan_pairs)
+
+#RANK ALL SIMMILAR PEER STATES#
+partisan_pairs_ranked <- partisan_pairs |>
+  group_by(
+    focal_state_id,
+    focal_abbr,
+    year
+  ) |>
+  # Sort from smallest partisan distance to largest
+  arrange(
+    partisan_distance,
+    peer_abbr,
+    .by_group = TRUE
+  ) |>
+  mutate(
+    # Rank 1 = closest partisan peer
+    # Rank 2 = second closest
+    # etc
+    partisan_rank = row_number()
+  ) |>
+  ungroup()
+
+###Keep the closest third#
+#from 49 states that would be approximately 16 states
+
+#keep closest 16 state peers
+partisan_peers <- partisan_pairs_ranked |>
+  filter(partisan_rank <= 16)
+
+#checking one state such as texas as an example 
+partisan_peers |>
+  filter(
+    focal_abbr == "TX",
+    year == 2024
+  ) |>
+  select(
+    focal_abbr,
+    year,
+    focal_rep_lag,
+    peer_abbr,
+    peer_rep_lag,
+    partisan_distance,
+    partisan_rank,
+    peer_prior_intro,
+    peer_prior_adopt
+  ) |>
+  arrange(partisan_rank)
+
+
+#check Florida
+
+partisan_peers |>
+  filter(
+    focal_abbr == "FL",
+    year == 2024
+  ) |>
+  select(
+    focal_abbr,
+    year,
+    focal_rep_lag,
+    peer_abbr,
+    peer_rep_lag,
+    partisan_distance,
+    partisan_rank,
+    peer_prior_intro,
+    peer_prior_adopt
+  ) |>
+  arrange(partisan_rank)
+
+#Missippi
+partisan_peers |>
+  filter(
+    focal_abbr == "MS",
+    year == 2024
+  ) |>
+  select(
+    focal_abbr,
+    year,
+    focal_rep_lag,
+    peer_abbr,
+    peer_rep_lag,
+    partisan_distance,
+    partisan_rank,
+    peer_prior_intro,
+    peer_prior_adopt
+  ) |>
+  arrange(partisan_rank)
+
+##CALCULATE FINAL PARTISAN DIFFUSION MEASURES
+partisan_diffusion <- partisan_peers |>
+  #Calculate diffusion separately for each focal state-year
+  group_by(
+    focal_state_id,
+    focal_abbr,
+    year
+  ) |>
+  summarise(
+    ###NUMBER OF POLITICALLY SIMILAR PEERS
+    #Should equal 16
+    n_partisan_peers = n(),
+    
+    #PARTISAN INTRODUCTION DIFFUSION#
+    #Number of partisan peers that had already introduced
+    #an anti-DEI bill before the focal year
+    n_partisan_prior_intro = sum(
+      peer_prior_intro == 1,
+      na.rm = TRUE
+    ),
+    #Proportion of partisan peers that had already introduced
+    #Range:
+    #0 = none of the 16 peers previously introduced
+    #1 = all 16 peers previously introduced
+    partisan_intro_prop =
+      n_partisan_prior_intro / n_partisan_peers,
+    
+    #PARTISAN ADOPTION DIFFUSION
+    # Number of partisan peers that had already adopted
+    # anti-DEI policy before the focal year
+    n_partisan_prior_adopt = sum(
+      peer_prior_adopt == 1,
+      na.rm = TRUE
+    ),
+    # Proportion of partisan peers that had already adopted
+    partisan_adopt_prop =
+      n_partisan_prior_adopt / n_partisan_peers,
+    .groups = "drop"
+  )
+
+
+#Inspect the data
+partisan_diffusion |>
+  arrange(focal_abbr, year) |>
+  print(n = 50)
+
+#check for texas as an example
+partisan_diffusion |>
+  filter(
+    focal_abbr == "TX"
+  ) |>
+  select(
+    focal_abbr,
+    year,
+    n_partisan_peers,
+    n_partisan_prior_intro,
+    partisan_intro_prop,
+    n_partisan_prior_adopt,
+    partisan_adopt_prop
+  ) 
+
+
+partisan_diffusion |>
+  count(n_partisan_peers)
+
+
+#checks and compare to make sure caluculations are correct
+partisan_peers |>
+  filter(
+    focal_abbr == "TX",
+    year == 2024
+  ) |>
+  select(
+    peer_abbr,
+    partisan_rank,
+    peer_prior_intro,
+    peer_prior_adopt
+  ) |>
+  arrange(partisan_rank)
+
+
+partisan_diffusion |>
+  filter(
+    focal_abbr == "TX",
+    year == 2024
+  )
+
+#clean variable names for merging to full data set 
+partisan_diffusion <- partisan_diffusion |>
+  rename(
+    state_id = focal_state_id,
+    state_abbr = focal_abbr
+  )
+
+#extract final partisan diffusion variables 
+write.csv(
+  partisan_diffusion,
+  "dei_partisan_diffusion.csv",
+  row.names = FALSE
+)
+
+
+
+
 
 
 
