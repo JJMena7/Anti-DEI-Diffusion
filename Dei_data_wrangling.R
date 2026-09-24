@@ -145,7 +145,7 @@ state_white_export <- state_white_acs5 %>%
 #View data
 view(state_white_export)
 
-#data from 2019 - 20245 for ACS5 data
+#data from 2019 - 2025 for ACS5 data
 #export to csv
 write_csv(
   state_white_export,
@@ -153,7 +153,6 @@ write_csv(
 )
 
 
-#Extract for ACS1 data 2020 - 2025
 
 
 #################ACS Year 1 & 5 Estimates#################################
@@ -232,7 +231,7 @@ get_state_white_nh_15_24 <- function(year) {
     ),
     output = "wide",
     cache_table = FALSE
-  ) %>%
+  ) |>
     transmute(
       year = year,
       acs_period = paste0(year - 4, "-", year),
@@ -271,7 +270,7 @@ state_white_nh_15_24 <- map_dfr(years, get_state_white_nh_15_24)
 view(state_white_nh_15_24)
 
 #arrange data by state and year 
-state_white_nh_15_24_export <- state_white_nh_15_24 %>%
+state_white_nh_15_24_export <- state_white_nh_15_24 |>
   transmute(
     state,
     year,
@@ -284,7 +283,7 @@ state_white_nh_15_24_export <- state_white_nh_15_24 %>%
 view(state_white_nh_15_24_export)
 
 #check data 
-state_white_nh_15_24_export %>%
+state_white_nh_15_24_export |>
   filter(state == "Alabama")
 
 #export dataset file for ACS5 estimates (2019 - 2024)
@@ -328,7 +327,7 @@ get_state_white_nh_15_24_acs1 <- function(year) {
     ),
     output = "wide",
     cache_table = FALSE
-  ) %>%
+  ) |>
     transmute(
       year = year,
       GEOID,
@@ -372,7 +371,7 @@ state_white_nh_15_24_acs1_export <- state_white_nh_15_24_acs1 %>%
     year,
     white_nh_15_24_prop,
     white_nh_15_24_pct
-  ) %>%
+  ) |>
   arrange(state, year)
 
 
@@ -415,7 +414,7 @@ get_state_white_acs1_2018 <- function(year) {
     ),
     output = "wide",
     cache_table = FALSE
-  ) %>%
+  ) |>
     transmute(
       year = year,
       GEOID,
@@ -458,7 +457,7 @@ state_white_nh_acs1_18 <- state_white_nh_acs1_18 |>
     year,
     white_nh_15_24_prop,
     white_nh_15_24_pct
-  ) %>%
+  ) |>
   arrange(state, year)
 
 
@@ -500,7 +499,7 @@ get_state_white_acs1_2019 <- function(year) {
     ),
     output = "wide",
     cache_table = FALSE
-  ) %>%
+  ) |>
     transmute(
       year = year,
       GEOID,
@@ -543,7 +542,7 @@ state_white_nh_acs1_19 <- state_white_nh_acs1_19 |>
     year,
     white_nh_15_24_prop,
     white_nh_15_24_pct
-  ) %>%
+  ) |>
   arrange(state, year)
 
 
@@ -555,9 +554,9 @@ view(state_white_nh_acs1_19)
 library(tidyverse)
 library(tidycensus)
 
-# ------------------------------------------------------------
+# -----------------
 # Setup
-# ------------------------------------------------------------
+# -----------------
 
 state_abbrs <- c(state.abb)
 
@@ -566,9 +565,9 @@ pums_base_url <- paste0(
   "experimental/2020/data/pums/1-Year/"
 )
 
-# ------------------------------------------------------------
+# ---------------
 # Function
-# ------------------------------------------------------------
+# ---------------
 
 get_state_white_nh_15_24_2020 <- function(state_abbr) {
 
@@ -643,7 +642,7 @@ get_state_white_nh_15_24_2020 <- function(state_abbr) {
     ),
     show_col_types = FALSE,
     progress = FALSE
-  ) %>%
+  ) |>
     mutate(
       ST = as.character(ST),
       AGEP = as.integer(AGEP),
@@ -661,10 +660,10 @@ get_state_white_nh_15_24_2020 <- function(state_abbr) {
   )
 
   # Calculate weighted estimates
-  pums %>%
+  pums |>
     filter(
       between(AGEP, 15, 24)
-    ) %>%
+    ) |>
     summarise(
       total_15_24 = sum(
         PWGTP,
@@ -678,7 +677,7 @@ get_state_white_nh_15_24_2020 <- function(state_abbr) {
         ],
         na.rm = TRUE
       )
-    ) %>%
+    ) |>
     mutate(
       year = 2020L,
       GEOID = geoid_value,
@@ -689,7 +688,7 @@ get_state_white_nh_15_24_2020 <- function(state_abbr) {
 
       white_nh_15_24_pct =
         100 * white_nh_15_24_prop
-    ) %>%
+    ) |>
     select(
       year,
       GEOID,
@@ -728,8 +727,8 @@ state_crosswalk <-
   transmute(
     GEOID = as.character(state_code),
     state = state_name
-  ) %>%
-  distinct() %>%
+  ) |>
+  distinct() |>
   mutate(
     GEOID = stringr::str_pad(
       GEOID,
@@ -740,11 +739,11 @@ state_crosswalk <-
   )
 
 state_white_nh_15_24_acs1_2020 <-
-  state_white_nh_15_24_acs1_2020 %>%
+  state_white_nh_15_24_acs1_2020 |>
   left_join(
     state_crosswalk,
     by = "GEOID"
-  ) %>%
+  ) |>
   select(
     year,
     GEOID,
@@ -754,7 +753,7 @@ state_white_nh_15_24_acs1_2020 <-
     total_15_24,
     white_nh_15_24_prop,
     white_nh_15_24_pct
-  ) %>%
+  ) |>
   arrange(GEOID)
 
 view(state_white_nh_15_24_acs1_2020)
@@ -795,7 +794,7 @@ write_csv(
 state_white_nh_15_24_combined <- bind_rows(
   acs1_export,
   acs5_export
-) %>%
+) |>
   arrange(state, acs_type, year)
 
 # View combined file
@@ -811,22 +810,21 @@ view(state_white_nh_15_24_acs1_export)
 view(state_white_nh_15_24_export)
 
 
-
 ###merge both ACS 1 and ACS 5 datasets
 
 # Add ACS source label to ACS 1-year file
-acs1_export <- state_white_nh_15_24_acs1_export %>%
+acs1_export <- state_white_nh_15_24_acs1_export |>
   mutate(acs_type = "ACS1")
 
 # Add ACS source label to ACS 5-year file
-acs5_export <- state_white_nh_15_24_export %>%
+acs5_export <- state_white_nh_15_24_export |>
   mutate(acs_type = "ACS5")
 
 # Combine into one long-format dataset
 state_white_nh_15_24_combined <- bind_rows(
   acs1_export,
   acs5_export
-) %>%
+) |>
   arrange(state, acs_type, year)
 
 # View combined file
@@ -1463,16 +1461,6 @@ analysis_panel |>
 
 #extract as csv file 
 write_csv(analysis_panel, "state_racialthreat_indicators.csv")
-
-
-
-
-
-
-#extract full panel data 
-
-
-
 
 
 ###################################################
